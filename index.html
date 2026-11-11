@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tour del Terror · Usaquén — Mapa de la ruta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F0D0C; --card:#1C1816; --text:#EDE6D8; --muted:#B9AE9C; --note:#8F8577; --blood:#6E1B17; --blood2:#6E1B17; --gold:#D9A441; --line:#3A322D;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:'Public Sans',system-ui,sans-serif;overflow:hidden}
+  #stage{position:fixed;inset:0;background:radial-gradient(90% 80% at 55% 45%,#1C1816 0%,#0F0D0C 75%)}
+  #map{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+  /* header overlay */
+  .head{position:fixed;top:16px;left:16px;z-index:5;max-width:min(560px,calc(100vw - 32px));
+    background:linear-gradient(180deg,rgba(15,13,12,.85),rgba(15,13,12,.55));backdrop-filter:blur(6px);
+    border:1px solid rgba(217,164,65,.35);border-radius:16px;padding:14px 18px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  h1{font-family:'Cormorant Garamond',serif;font-weight:900;font-size:clamp(22px,3.6vw,38px);margin:0;letter-spacing:.05em;line-height:1.05;
+    text-shadow:0 0 18px rgba(217,164,65,.25)}
+  h1 span{color:var(--gold)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{font-size:12px;border:1px solid var(--line);background:rgba(28,24,22,.85);padding:4px 9px;border-radius:999px;color:var(--muted)}
+  .chip b{color:var(--gold)}
+
+  .hint{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:5;
+    background:rgba(15,13,12,.85);border:1px solid rgba(217,164,65,.45);color:var(--gold);
+    padding:10px 18px;border-radius:999px;font-size:14px;white-space:nowrap;animation:bob 2.4s ease-in-out infinite;transition:opacity .4s}
+  .hint.hide{opacity:0;pointer-events:none}
+  @keyframes bob{50%{transform:translate(-50%,-5px)}}
+
+  .legend{position:fixed;left:16px;bottom:16px;z-index:4;font-size:12px;color:var(--muted);background:rgba(15,13,12,.75);
+    padding:8px 11px;border-radius:10px;line-height:1.8;border:1px solid var(--line)}
+  .legend i{display:inline-block;width:24px;border-top:3px solid var(--gold);vertical-align:middle;margin-right:7px}
+  .legend i.d{border-top:3px dashed var(--muted)}
+  .legend small{display:block;color:var(--note)}
+  @media (max-width:700px){.legend{display:none}}
+
+  /* info card */
+  .scrim{position:fixed;inset:0;z-index:6;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .3s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  @media (min-width:761px){.scrim{display:none}}
+  .card{position:fixed;z-index:7;right:20px;top:50%;width:min(420px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;
+    transform:translate(30px,-50%) scale(.97);opacity:0;pointer-events:none;
+    background:var(--card);border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.6),0 20px 60px rgba(0,0,0,.7),0 0 50px rgba(110,27,23,.35);
+    transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .3s}
+  .card.on{transform:translate(0,-50%) scale(1);opacity:1;pointer-events:auto}
+  @media (max-width:760px){
+    .card{right:0;left:0;top:auto;bottom:0;width:100%;max-height:72vh;border-radius:20px 20px 0 0;transform:translateY(40px);}
+    .card.on{transform:translateY(0)}
+  }
+  .card-top{position:relative;padding:22px 22px 14px;border-bottom:1px solid var(--line);
+    background:radial-gradient(120% 120% at 0% 0%,rgba(110,27,23,.45),transparent 65%)}
+  .badge{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font:900 20px 'Cormorant Garamond',serif;color:#fff;
+    background:var(--blood);border:2px solid var(--gold);box-shadow:0 0 18px rgba(110,27,23,.8);margin-bottom:10px}
+  .badge.g{background:var(--card);border-color:var(--gold);box-shadow:0 0 14px rgba(217,164,65,.35)}
+  .badge.o{background:var(--card);border:2px dashed var(--muted);box-shadow:none}
+  .place{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+  .title{font:700 28px/1.1 'Cormorant Garamond',serif;margin-top:4px}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .tag{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .tag.r{border-color:var(--blood);background:var(--blood);color:var(--text)}
+  .tag.y{border-color:var(--gold);color:var(--gold)}
+  .tag.t{border-color:var(--gold);color:var(--gold);background:rgba(217,164,65,.08)}
+  .close{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
+    background:rgba(0,0,0,.4);color:var(--text);font-size:20px;line-height:1;cursor:pointer}
+  .close:hover{border-color:var(--gold)}
+  .text{padding:18px 22px;font-size:15px;line-height:1.65;color:var(--muted)}
+  .text b{color:var(--text)}
+  .text h3{font:700 13px 'Public Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin:16px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .text h3:first-child{margin-top:0}
+  .text p{margin:0}
+  .text .src{color:var(--note);font-size:13.5px}
+  .nav{display:flex;gap:8px;padding:0 22px 20px}
+  .nav button{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:11px;border-radius:12px;font:600 14px 'Public Sans',sans-serif;cursor:pointer}
+  .nav button:hover{border-color:var(--gold)}
+
+  /* map fx */
+  .pin{cursor:pointer;transition:transform .2s}
+  .pin .halo{animation:halo 2.4s ease-out infinite}
+  .pin:nth-child(2) .halo{animation-delay:.4s}.pin:nth-child(3) .halo{animation-delay:.8s}
+  .pin:nth-child(4) .halo{animation-delay:1.2s}.pin:nth-child(5) .halo{animation-delay:1.6s}.pin:nth-child(6) .halo{animation-delay:2s}
+  @keyframes halo{0%{r:18;opacity:.7}100%{r:42;opacity:0}}
+  .pin .core{transition:transform .2s;transform-box:fill-box;transform-origin:center}
+  .pin:hover .core,.pin:focus .core{transform:scale(1.15)}
+  .pin.active .core{transform:scale(1.22)}
+  .pin:focus{outline:none}
+  .pin .lbl{transition:opacity .2s}
+  .route{stroke-dasharray:12 9;animation:walk 1.4s linear infinite}
+  @keyframes walk{to{stroke-dashoffset:-42}}
+  .fog{animation:drift 24s ease-in-out infinite alternate}
+  .fog.b{animation-duration:32s;animation-direction:alternate-reverse}
+  @keyframes drift{from{transform:translateX(-60px)}to{transform:translateX(70px)}}
+  .twinkle{animation:tw 3s ease-in-out infinite}
+  @keyframes tw{50%{opacity:.2}}
+  #flash{position:fixed;inset:0;z-index:3;pointer-events:none;background:#EDE6D8;opacity:0}
+  #flash.go{animation:flash 1.1s ease-out}
+  @keyframes flash{0%{opacity:0}5%{opacity:.22}10%{opacity:0}16%{opacity:.14}100%{opacity:0}}
+  @media (prefers-reduced-motion:reduce){.route,.fog,.twinkle,.pin .halo,.hint{animation:none}#flash{display:none}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="map" viewBox="0 0 760 900" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa de la ruta del Tour del Terror por Usaquén">
+    <defs>
+      <filter id="blur"><feGaussianBlur stdDeviation="20"/></filter>
+      <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <filter id="soft"><feGaussianBlur stdDeviation="2.5"/></filter>
+      <pattern id="trees" width="22" height="22" patternUnits="userSpaceOnUse">
+        <path d="M11 3 l6 12 h-12z" fill="#3A322D" opacity=".9"/>
+        <path d="M11 9 l4 8 h-8z" fill="#2a2420"/>
+      </pattern>
+      <radialGradient id="moonG" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#F6F0E4"/><stop offset="70%" stop-color="#EDE6D8"/><stop offset="100%" stop-color="#B9AE9C"/>
+      </radialGradient>
+      <radialGradient id="moonHalo" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#EDE6D8" stop-opacity=".35"/><stop offset="100%" stop-color="#EDE6D8" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="hillG" x1="0" x2="1">
+        <stop offset="0%" stop-color="#1C1816"/><stop offset="100%" stop-color="#141110"/>
+      </linearGradient>
+      <radialGradient id="vig" cx="50%" cy="50%" r="72%">
+        <stop offset="55%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".75"/>
+      </radialGradient>
+    </defs>
+
+    <rect x="-400" y="-200" width="1560" height="1300" fill="#0F0D0C"/>
+
+    <!-- stars -->
+    <g fill="#fff">
+      <circle class="twinkle" cx="420" cy="40" r="1.2"/><circle cx="520" cy="80" r="1"/><circle class="twinkle" cx="350" cy="110" r="1"/>
+      <circle cx="610" cy="30" r="1.3"/><circle class="twinkle" cx="250" cy="60" r="1"/><circle cx="470" cy="150" r=".9"/>
+      <circle class="twinkle" cx="700" cy="120" r="1.1"/><circle cx="160" cy="130" r=".9"/>
+    </g>
+
+    <!-- block texture -->
+    <g stroke="#1C1816" stroke-width="1">
+      <path d="M0 120 H600 M0 260 H600 M0 440 H600 M0 560 H600 M0 620 H600 M0 740 H600 M0 840 H600"/>
+      <path d="M200 0 V900 M220 0 V900 M380 0 V600 M500 0 V900 M560 520 V900"/>
+    </g>
+
+    <!-- Cerros -->
+    <path d="M620 0 C585 120 640 200 600 300 C570 380 650 450 610 540 C580 620 640 720 600 800 L590 900 H1160 V-200 H620 Z" fill="url(#hillG)"/>
+    <path d="M620 0 C585 120 640 200 600 300 C570 380 650 450 610 540 C580 620 640 720 600 800 L590 900 H1160 V-200 H620 Z" fill="url(#trees)" opacity=".9"/>
+    <path d="M620 0 C585 120 640 200 600 300 C570 380 650 450 610 540 C580 620 640 720 600 800 L590 900" fill="none" stroke="#3A322D" stroke-width="2" opacity=".6"/>
+    <g fill="none" stroke="#2a2420" stroke-width="1.2" opacity=".7">
+      <path d="M660 0 C630 150 690 260 650 360 C625 440 700 520 660 620 C640 700 690 790 650 900"/>
+      <path d="M705 0 C680 160 735 270 700 380 C680 460 740 540 705 640 C690 720 730 800 700 900"/>
+    </g>
+    <text x="700" y="250" fill="#8F8577" font-family="Cormorant Garamond" font-weight="700" font-size="17" text-anchor="middle" transform="rotate(-82 700 250)" letter-spacing="6" opacity=".85">CERROS ORIENTALES</text>
+    <text x="684" y="575" fill="#B9AE9C" font-family="Cormorant Garamond" font-size="13" text-anchor="middle">Bosque Medina</text>
+
+    <!-- moon -->
+    <circle cx="690" cy="70" r="90" fill="url(#moonHalo)"/>
+    <circle cx="690" cy="70" r="30" fill="url(#moonG)"/>
+    <circle cx="680" cy="62" r="5" fill="#B9AE9C" opacity=".6"/><circle cx="700" cy="80" r="3.5" fill="#B9AE9C" opacity=".5"/>
+
+    <!-- tren / Cra 9 -->
+    <path d="M90 -200 V1100" stroke="#3A322D" stroke-width="2" stroke-dasharray="2 6"/>
+    <path d="M110 -200 V1100" stroke="#3A322D" stroke-width="10"/>
+    <text x="124" y="884" fill="#8F8577" font-size="12">Cra. 9</text>
+    <text x="80" y="640" fill="#8F8577" font-size="10" transform="rotate(-90 80 640)">vía del tren</text>
+
+    <!-- Cra 7 -->
+    <path d="M300 -200 V1100" stroke="#3A322D" stroke-width="14"/>
+    <path d="M300 -200 V1100" stroke="#5a4e45" stroke-width="1" stroke-dasharray="10 12"/>
+    <text x="316" y="884" fill="#B9AE9C" font-size="13" font-weight="600">Cra. 7</text>
+    <!-- Cra 6 -->
+    <path d="M385 630 V860" stroke="#3A322D" stroke-width="8"/>
+    <text x="392" y="852" fill="#8F8577" font-size="11">Cra. 6</text>
+
+    <!-- calles -->
+    <g stroke="#3A322D" stroke-width="8">
+      <path d="M-200 790 H600"/><path d="M-200 680 H600"/><path d="M-200 500 H610"/>
+      <path d="M-200 390 H600"/><path d="M-200 350 H600"/><path d="M-200 200 H600"/>
+    </g>
+    <g fill="#8F8577" font-size="11.5">
+      <text x="314" y="781">Cl. 116</text><text x="314" y="671">Cl. 119</text><text x="314" y="491">Cl. 124</text>
+      <text x="314" y="382">Cl. 127</text><text x="314" y="342">Cl. 127c</text><text x="314" y="191">Cl. 131a</text>
+    </g>
+    <path d="M385 720 C410 640 440 560 470 470 C480 420 480 380 470 330" stroke="#3A322D" stroke-width="8" fill="none"/>
+
+    <!-- parque + iglesia + hacienda -->
+    <rect x="395" y="648" width="72" height="58" rx="8" fill="#1C1816" stroke="#3A322D"/>
+    <g fill="#3A322D"><circle cx="410" cy="662" r="6"/><circle cx="452" cy="664" r="7"/><circle cx="430" cy="692" r="6"/></g>
+    <text x="431" y="723" fill="#B9AE9C" font-size="10" text-anchor="middle">Parque Fundacional</text>
+    <g transform="translate(476 636)">
+      <rect x="0" y="12" width="22" height="20" fill="#1C1816" stroke="#8F8577"/>
+      <path d="M-2 12 L11 0 L24 12Z" fill="#1C1816" stroke="#8F8577"/>
+      <path d="M11 -11 V-1 M6 -7 H16" stroke="#D9A441" stroke-width="2" fill="none" filter="url(#soft)"/>
+      <path d="M11 -11 V-1 M6 -7 H16" stroke="#D9A441" stroke-width="1.5" fill="none"/>
+      <rect x="8" y="20" width="6" height="12" fill="#D9A441" opacity=".35"/>
+    </g>
+    <g transform="translate(232 800)">
+      <rect x="0" y="0" width="58" height="38" rx="3" fill="#1C1816" stroke="#8F8577"/>
+      <path d="M-4 0 L29 -14 L62 0Z" fill="#1C1816" stroke="#8F8577"/>
+      <rect x="8" y="12" width="8" height="8" fill="#D9A441" opacity=".5"/><rect x="42" y="12" width="8" height="8" fill="#D9A441" opacity=".3"/>
+      <text x="29" y="54" fill="#B9AE9C" font-size="10" text-anchor="middle">Hacienda</text>
+    </g>
+
+    <!-- fog -->
+    <g opacity=".16" filter="url(#blur)">
+      <ellipse class="fog" cx="560" cy="420" rx="190" ry="55" fill="#EDE6D8"/>
+      <ellipse class="fog b" cx="260" cy="280" rx="230" ry="50" fill="#EDE6D8"/>
+      <ellipse class="fog" cx="420" cy="610" rx="170" ry="45" fill="#EDE6D8"/>
+      <ellipse class="fog b" cx="650" cy="700" rx="160" ry="50" fill="#EDE6D8"/>
+    </g>
+
+    <!-- routes -->
+    <path d="M263 800 L300 790 L385 760 L410 690 L440 590 L470 470 L560 458 L640 448 L590 385 L540 350 L110 350 L110 200"
+          fill="none" stroke="#6E1B17" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity=".45" filter="url(#soft)"/>
+    <path class="route" d="M263 800 L300 790 L385 760 L410 690 L440 590 L470 470 L560 458 L640 448 L590 385 L540 350 L110 350 L110 200"
+          fill="none" stroke="#D9A441" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+
+    <g id="pins"></g>
+
+    <!-- compass -->
+    <g transform="translate(60 250)">
+      <circle r="24" fill="#1C1816" stroke="#3A322D"/>
+      <path d="M0 -17 L5 0 L0 17 L-5 0Z" fill="#6E1B17"/><path d="M0 0 L5 0 L0 17 L-5 0Z" fill="#3A322D"/>
+      <text y="-30" fill="#D9A441" font-size="12" text-anchor="middle" font-family="Cormorant Garamond">N</text>
+    </g>
+
+    <rect x="-400" y="-200" width="1560" height="1300" fill="url(#vig)" pointer-events="none"/>
+  </svg>
+</div>
+<div id="flash"></div>
+
+<div class="head">
+  <h1>Tour del Terror · <span>Usaquén</span></h1>
+  <div class="chips">
+    <span class="chip"><b>5</b> paradas</span>
+    <span class="chip">Paradas <b>≈ 25 min</b></span>
+    <span class="chip">Grupo 1 · Grupo 4</span>
+  </div>
+</div>
+
+<div class="legend"><i></i>Ruta del tour<small>Mapa esquemático, no a escala</small></div>
+<div class="hint" id="hint">Toca un lugar del mapa para descubrir su historia</div>
+
+<div class="scrim" id="scrim"></div>
+<section class="card" id="card" role="dialog" aria-modal="false" aria-labelledby="cTitle">
+  <div class="card-top">
+    <button class="close" id="close" type="button" aria-label="Cerrar">×</button>
+    <div class="badge" id="cBadge"></div>
+    <div class="place" id="cPlace"></div>
+    <div class="title" id="cTitle"></div>
+    <div class="meta" id="cMeta"></div>
+  </div>
+  <div class="text" id="cText"></div>
+  <div class="nav">
+    <button id="prev" type="button">← Anterior</button>
+    <button id="next" type="button">Siguiente →</button>
+  </div>
+</section>
+
+<script>
+const STOPS = [
+  { id:"1", kind:"main", x:263, y:800, place:"Centro Comercial Hacienda Santa Bárbara", title:"Hacienda Santa Bárbara", min:"5–6 min",
+    tags:[["Salida","y"],["Leyenda","r"]],
+    text:"Para empezar el tour visitamos la Hacienda Santa Bárbara. No solo queremos contar los hechos terroríficos de esta construcción, sino también la realidad que vivieron las personas de este sector en sus años más jóvenes.<br><br>Usaquén fue fundado en 1539 y la hacienda se levantó en 1843. Aquí han ocurrido muchas historias: <b>el fantasma de Pepe Sierra</b>, los ruidos sin razón y todo lo que pasó dentro de esas paredes.",
+    activity:"Entregamos a cada participante un diario con varias hojas. En una de ellas responderán: <i>¿si su alma estuviera atorada aquí, estarían dispuestos a hacer lo que sea para salir?</i> Cerramos preguntando por el origen del barrio, como invitación a la siguiente parada.",
+    sources:"Alcaldía de Bogotá; revistas públicas como El Tiempo y Las2orillas; leyendas y relatos de los habitantes del sector." },
+  { id:"2", kind:"main", x:410, y:690, place:"Plaza Fundacional de Usaquén", title:"Plaza Fundacional", min:"5–6 min",
+    tags:[["Historia oscura","r"]],
+    text:"Aquí compartimos la historia oscura de Usaquén, la que no sale en los libros. Según lo que algunos cuentan, el nombre de este sector viene de <b>prácticas religiosas crueles y sádicas</b>, con mucha sangre detrás.",
+    activity:"Los participantes abren su diario y escriben el nombre de la persona que estarían dispuestos a sacrificar. Luego les vendamos los ojos y los llevamos por un camino entre nervios y miedo, pensando en su decisión, hacia el siguiente lugar: <i>cómo la fe ciega también nos puede acabar</i>.",
+    sources:"Bogota.gov.co; Alcaldía Local de Usaquén; historias de Citytv y relatos de los habitantes del sector." },
+  { id:"3", kind:"main", x:640, y:448, place:"Borde de los cerros · Bosque Medina", title:"Llegada al borde de los cerros", min:"4 min",
+    tags:[["Leyenda","r"],["Persecución","y"]],
+    text:"Esta parada es un recordatorio de todo lo que este sector ha ocultado y llevado a la tumba: asesinatos, atentados, dolor y sufrimiento. Contamos historias como las de la <b>época muisca</b>, cuando la muerte era un vecino más del sector y dejó almas vagando sin paz, como <b>La Llorona en la quebrada</b>.",
+    activity:"Les decimos que de ellos depende si sus vidas se quedan aquí. Uno de los guías persigue a los participantes mientras huyen por el camino hasta la siguiente parada. Al llegar, escriben en su diario lo que sintieron.",
+    sources:"Medios como El Heraldo, El Tiempo y Noticias RCN; leyendas y cuentos de los habitantes del sector." },
+  { id:"4", kind:"main", x:540, y:350, place:"Calle 127 desde la Carrera 7 hacia el oriente", title:"La Curva del Duende", min:"4 min",
+    tags:[["Relato popular","r"],["Sensorial","y"]],
+    text:"El mensaje de esta penúltima parada son las leyendas que nos llevan a dudar de lo que vemos, o más importante, de lo que ignoramos y existe: aquello que no nos gustaría que fuera verdad, aunque nada nos asegura que no lo sea.",
+    activity:"Una actividad sensorial: les vendamos los ojos de nuevo, con cuidado, y los exponemos a sonidos y sensaciones repentinas que no desearían escuchar esa noche. Los guiamos hasta la salida del cerro y hacia la última parada. En el camino escriben en una palabra lo que vivieron.",
+    sources:"Leyendas y cuentos de los habitantes del sector." },
+  { id:"5", kind:"main", x:110, y:200, place:"Av. Carrera 9 con Calle 131a", title:"Los Sótanos del Bosque", min:"5–6 min",
+    tags:[["Cierre","y"],["Relato popular","r"]],
+    text:"En la última parada explicamos que el sector ha estado habitado por miles de historias de misterio y terror. Pero estas historias no solo enseñan a temer: el miedo también hace parte de la realidad de un lugar, e ignorarlo es repetir la historia hasta que alguien la escuche.<br><br>Así pasa con los relatos de <b>los sótanos de la Avenida Jiménez</b>, que se dice que están conectados con los sótanos de esta universidad, donde aún se escuchan los gritos de las vidas que pasaron por ellos.",
+    activity:"Los participantes ponen su diario o bitácora en una caja, que será el cierre de esta aventura. Los asustamos por última vez y les dejamos un recordatorio del tour.",
+    sources:"Instituto Distrital de Patrimonio Cultural; El Tiempo; leyendas y cuentos de los habitantes del sector." }
+];
+
+const NS="http://www.w3.org/2000/svg";
+const pinsG=document.getElementById("pins");
+const card=document.getElementById("card"), scrim=document.getElementById("scrim"), hint=document.getElementById("hint");
+let current=-1;
+
+function el(tag,attrs){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+
+STOPS.forEach((s,i)=>{
+  const main=s.kind==="main", col="#D9A441", ring=main?"#6E1B17":"#D9A441";
+  const g=el("g",{class:"pin",transform:`translate(${s.x} ${s.y})`,tabindex:"0",role:"button","aria-label":`Parada ${s.id}: ${s.title}`});
+  const halo=el("circle",{class:"halo",r:"18",fill:"none",stroke:main?"#6E1B17":"#D9A441","stroke-width":"2"});
+  const core=el("g",{class:"core"});
+  core.append(
+    el("circle",{r:s.kind==="hook"?"15":"21",fill:main?"#6E1B17":"#D9A441",opacity:main?".7":".25",filter:"url(#soft)"}),
+    el("circle",{r:s.kind==="hook"?"13":"17",fill:main?"#6E1B17":"#1C1816",stroke:s.kind==="opt"?"#B9AE9C":col,"stroke-width":"3",...(s.kind==="opt"?{"stroke-dasharray":"5 3"}:{})})
+  );
+  const t=el("text",{"text-anchor":"middle",dy:"6",fill:"#EDE6D8","font-family":"Cormorant Garamond","font-weight":"900","font-size":s.kind==="hook"?"15":"20"});
+  t.textContent=s.id; core.append(t);
+  const right=s.x<560;
+  const lbl=el("text",{class:"lbl",x:right?26:-26,y:"-16","text-anchor":right?"start":"end",fill:"#EDE6D8","font-size":"17","font-weight":"700",
+    "font-family":"Cormorant Garamond","paint-order":"stroke",stroke:"#0F0D0C","stroke-width":"5","stroke-linejoin":"round"});
+  lbl.textContent=s.title.replace("Gancho: ","");
+  g.append(halo,core,lbl);
+  g.addEventListener("click",e=>{e.stopPropagation();open(i);});
+  g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open(i);}});
+  pinsG.appendChild(g); s.pin=g;
+});
+
+function open(i){
+  current=i; const s=STOPS[i];
+  STOPS.forEach((x,j)=>x.pin.classList.toggle("active",j===i));
+  const b=document.getElementById("cBadge");
+  b.className="badge"+(s.kind==="hook"?" g":s.kind==="opt"?" o":""); b.textContent=s.id;
+  document.getElementById("cPlace").textContent=s.place;
+  document.getElementById("cTitle").textContent=s.title;
+  document.getElementById("cMeta").innerHTML=`<span class="tag t">⏱ ${s.min}</span>`+s.tags.map(([n,c])=>`<span class="tag ${c}">${n}</span>`).join("");
+  document.getElementById("cText").innerHTML=`<h3>La historia</h3><p>${s.text}</p><h3>Actividad</h3><p>${s.activity}</p><h3>Fuentes</h3><p class="src">${s.sources}</p>`;
+  card.scrollTop=0;
+  card.classList.add("on"); scrim.classList.add("on"); hint.classList.add("hide");
+}
+function close(){card.classList.remove("on");scrim.classList.remove("on");STOPS.forEach(x=>x.pin.classList.remove("active"));current=-1;}
+document.getElementById("close").onclick=close;
+scrim.onclick=close;
+document.getElementById("map").addEventListener("click",close);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")close();});
+document.getElementById("prev").onclick=()=>open((current-1+STOPS.length)%STOPS.length);
+document.getElementById("next").onclick=()=>open((current+1)%STOPS.length);
+
+// occasional lightning
+const flash=document.getElementById("flash");
+setInterval(()=>{flash.classList.remove("go");void flash.offsetWidth;flash.classList.add("go");},11000);
+</script>
+</body>
+</html>
